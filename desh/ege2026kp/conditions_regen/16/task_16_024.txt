@@ -1,0 +1,15 @@
+Задача №16 (вариант 24)
+==================================================
+
+24) Определите, сколько символов * выведет эта процедура при вызове F(280):
+Python Паскаль C++
+def F( n ): procedure F( n: integer ); void F( int n )
+print('*') begin {
+if n >= 1: write('*'); cout << '*';
+print('*') if n >= 1 then begin if( n >= 1 ) {
+F(n-1) write('*'); cout << '*';
+F(n//3) F(n-1); F(n-1);
+print('*') F(n div 3); F(n/3);
+write('*'); cout << '*';
+end; }
+end; }

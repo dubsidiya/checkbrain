@@ -1,0 +1,22 @@
+Задача №16 (вариант 34)
+==================================================
+
+34) (Д.Ф. Муфаззалов) Определите наименьшее число n такое, что при вызове F(n) второе
+выведенное число будет больше числа 51. Запишите в ответе сначала найденное значение n, а
+затем через пробел – соответствующее значение F(n).
+Python Паскаль C++
+def F(n): function f(n: integer): int F(int n)
+print( n ) integer; {
+if n > 0: var d:integer; cout << n << endl;
+d = (n%10 + begin if( n ) {
+F(n//10)) writeln(N); int d = n%10 +
+print(d) if n > 0 then begin F(n/10);
+return d d := n mod 10 + cout << d << endl;
+else: F(n div 10); return d;
+return 0 writeln( d ); }
+F := d else
+end return 0;
+else F:= 0; }
+end;
+6 http://kpolyakov. spb .ru
+© К. Поляков, 2019-2025
