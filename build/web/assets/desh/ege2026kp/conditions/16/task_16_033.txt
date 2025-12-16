@@ -1,0 +1,22 @@
+Задача №16 (вариант 33)
+==================================================
+
+33)
+33) (Д.Ф. Муфаззалов) Определите наименьшее значение n такое, что последнее
+    выведенное число при вызове F(n) будет больше числа 32. Запишите в
+    ответе сначала найденное значение n, а затем через пробел –
+    соответствующее значение F(n).
+|Python               |Паскаль                   |C++                    |
+|def F(n):            |function F(n: integer):   |int F(int n)           |
+|print(n)             |integer;                  |{                      |
+|if n>0:              |var d:integer;            |cout << n << endl;     |
+|d=n%10+F(n//10)      |begin                     |if (n){                |
+|print(d)             |writeln(N);               |int d = n % 10 +       |
+|return d             |if n > 0 then begin       |F(n/10);               |
+|else: return 0       |d := n mod 10+            |cout << d << endl;     |
+|                     |F(n div 10);              |return d;              |
+|                     |writeln(d);               |}                      |
+|                     |F := d                    |else return 0;         |
+|                     |end                       |}                      |
+|                     |else F:= 0;               |                       |
+|                     |end;                      |                       |

@@ -1,0 +1,21 @@
+Задача №16 (вариант 32)
+==================================================
+
+32) (Д.Ф. Муфаззалов) Определите наибольшее трехзначное значение n, при
+    котором значение F(n), будет больше числа 7. Запишите в ответе сначала
+    найденное значение n, а затем через пробел – соответствующее значение
+    F(n).
+|Python                |Паскаль                 |C++                 |
+|def F(n):             |function F(n: integer): |int F(int n)        |
+|if n<10:              |integer;                |{                   |
+|return n              |var m,d: byte;          |if(n < 10)          |
+|else:                 |begin                   |return n;           |
+|m=F(n//10)            |if n < 10 then F:=n     |else {              |
+|d=m%10;               |else begin              |int m = F(n/10),    |
+|if m<d: return d      |m:= F(n div 10);        |d = m%10;           |
+|else: return m        |d:= m mod 10;           |if( m < d )         |
+|                      |if m < d then F:=d      |return d;           |
+|                      |else F := m             |else                |
+|                      |end                     |return m;           |
+|                      |end;                    |}                   |
+|                      |                        |}                   |
