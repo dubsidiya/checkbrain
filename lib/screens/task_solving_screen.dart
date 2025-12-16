@@ -20,15 +20,17 @@ class TaskSolvingScreen extends StatefulWidget {
 
 class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
   final TasksService _tasksService = TasksService();
-  final TasksConditionsJsonService _conditionsService = TasksConditionsJsonService();
+  final TasksConditionsJsonService _conditionsService =
+      TasksConditionsJsonService();
   final TasksPoolService _tasksPoolService = TasksPoolService();
   final Map<int, TextEditingController> _answerControllers = {};
   final Map<int, TextEditingController> _conditionControllers = {};
   final Map<int, String> _userCodes = {};
   final Map<int, String?> _taskContents = {};
   final Map<int, String?> _dataContents = {};
-  final Map<int, List<String>> _taskImages = {}; // Пути к изображениям для каждой задачи
-  
+  final Map<int, List<String>> _taskImages =
+      {}; // Пути к изображениям для каждой задачи
+
   int _currentTaskIndex = 0;
   bool _isLoadingContent = false;
   bool _isEditingCondition = false;
@@ -43,7 +45,7 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
   Future<void> _initializeControllers() async {
     for (final task in widget.variant.tasks) {
       _answerControllers[task.taskNumber] = TextEditingController();
-      
+
       // Используем условие, которое уже сохранено в задаче при создании варианта
       // Это гарантирует стабильность - задача не будет меняться
       String condition = '';
@@ -54,7 +56,9 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
       } else {
         // Fallback: если условие не было сохранено, загружаем из JSON
         try {
-          final jsonCondition = await _conditionsService.getRandomCondition(task.taskNumber);
+          final jsonCondition = await _conditionsService.getRandomCondition(
+            task.taskNumber,
+          );
           if (jsonCondition != null && jsonCondition.isNotEmpty) {
             condition = jsonCondition;
             _taskContents[task.taskNumber] = condition;
@@ -62,56 +66,69 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
         } catch (e) {
           print('Error loading condition from JSON: $e');
         }
-        
+
         // Если все еще нет, используем fallback
         if (condition.isEmpty) {
-          condition = TaskConditionsService.getTaskConditionWithFallback(task.taskNumber);
+          condition = TaskConditionsService.getTaskConditionWithFallback(
+            task.taskNumber,
+          );
         }
       }
-      
-      _conditionControllers[task.taskNumber] = TextEditingController(text: condition);
+
+      _conditionControllers[task.taskNumber] = TextEditingController(
+        text: condition,
+      );
     }
   }
 
   Future<void> _loadTaskContent() async {
     setState(() => _isLoadingContent = true);
-    
+
     final currentTask = widget.variant.tasks[_currentTaskIndex];
-    
+
     // Используем условие, которое уже сохранено в задаче при создании варианта
     // Это гарантирует, что задача не будет меняться при перелистывании
-    if (currentTask.solutionCode != null && currentTask.solutionCode!.isNotEmpty) {
+    if (currentTask.solutionCode != null &&
+        currentTask.solutionCode!.isNotEmpty) {
       setState(() {
         _taskContents[currentTask.taskNumber] = currentTask.solutionCode;
       });
       // Обновляем контроллер условия
       if (_conditionControllers[currentTask.taskNumber] != null) {
-        _conditionControllers[currentTask.taskNumber]!.text = currentTask.solutionCode!;
+        _conditionControllers[currentTask.taskNumber]!.text =
+            currentTask.solutionCode!;
       }
     } else {
       // Fallback: если условие не было сохранено, загружаем из JSON (но только один раз)
       if (_taskContents[currentTask.taskNumber] == null) {
         try {
-          final jsonCondition = await _conditionsService.getRandomCondition(currentTask.taskNumber);
+          final jsonCondition = await _conditionsService.getRandomCondition(
+            currentTask.taskNumber,
+          );
           if (jsonCondition != null && jsonCondition.isNotEmpty) {
             setState(() {
               _taskContents[currentTask.taskNumber] = jsonCondition;
             });
             if (_conditionControllers[currentTask.taskNumber] != null) {
-              _conditionControllers[currentTask.taskNumber]!.text = jsonCondition;
+              _conditionControllers[currentTask.taskNumber]!.text =
+                  jsonCondition;
             }
           }
         } catch (e) {
           print('Error loading condition from JSON: $e');
         }
       }
-      
+
       // Если все еще нет условия, пробуем загрузить из файлов
       if (_taskContents[currentTask.taskNumber] == null) {
         try {
-          final taskFiles = await _tasksService.getTaskFiles(currentTask.taskNumber);
+          final taskFiles = await _tasksService.getTaskFiles(
+            currentTask.taskNumber,
+          );
           if (taskFiles.isNotEmpty) {
-            final content = await _tasksService.readFileContent(taskFiles.first);
+            final content = await _tasksService.readFileContent(
+              taskFiles.first,
+            );
             if (content != null && content.isNotEmpty) {
               setState(() {
                 _taskContents[currentTask.taskNumber] = content;
@@ -125,8 +142,10 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
     }
 
     try {
-    // Загружаем файлы данных если есть
-      final dataFiles = await _tasksService.getDataFiles(currentTask.taskNumber);
+      // Загружаем файлы данных если есть
+      final dataFiles = await _tasksService.getDataFiles(
+        currentTask.taskNumber,
+      );
       if (dataFiles.isNotEmpty) {
         final content = await _tasksService.readFileContent(dataFiles.first);
         setState(() {
@@ -142,19 +161,32 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
     try {
       if (_taskImages[currentTask.taskNumber] == null) {
         // Пытаемся найти файл условия именно для этого номера и варианта
+        // На Android/iOS файловый путь, как правило, отсутствует — тогда используем asset path.
         final taskFilePath = await _tasksPoolService.getTaskFilePathForVariant(
           currentTask.taskNumber,
           currentTask.variantNumber,
         );
-        if (taskFilePath != null) {
-          final images = await _tasksPoolService.getImagesForCondition(
-            currentTask.taskNumber,
-            taskFilePath,
-          );
-          setState(() {
-            _taskImages[currentTask.taskNumber] = images;
-          });
-        }
+        final conditionPath =
+            taskFilePath ??
+            _tasksPoolService.getTaskAssetPathForVariant(
+              currentTask.taskNumber,
+              currentTask.variantNumber,
+            );
+
+        final content =
+            (_taskContents[currentTask.taskNumber] ??
+                    currentTask.solutionCode ??
+                    '')
+                .toString();
+        final images = await _tasksPoolService.getImagesForTaskContent(
+          currentTask.taskNumber,
+          content,
+          conditionPath: conditionPath,
+          variantNumber: currentTask.variantNumber,
+        );
+        setState(() {
+          _taskImages[currentTask.taskNumber] = images;
+        });
       }
     } catch (e) {
       print('Error loading task images: $e');
@@ -174,7 +206,7 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
       if (result != null && result.files.isNotEmpty) {
         final pickedFile = result.files.first;
         String? content;
-        
+
         // В версии 8.x может быть bytes или path
         if (pickedFile.bytes != null) {
           // Читаем из bytes
@@ -184,20 +216,20 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
           final file = File(pickedFile.path!);
           content = await file.readAsString();
         }
-        
+
         if (content != null && content.isNotEmpty) {
           setState(() {
             _userCodes[taskNumber] = content!;
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Код успешно загружен')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Код успешно загружен')));
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка загрузки файла: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка загрузки файла: $e')));
     }
   }
 
@@ -222,11 +254,11 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
   void _finishVariant() {
     // Сохраняем ответы пользователя
     final List<Task> completedTasks = [];
-    
+
     for (final task in widget.variant.tasks) {
       final userAnswer = _answerControllers[task.taskNumber]?.text.trim() ?? '';
       final userCode = _userCodes[task.taskNumber] ?? '';
-      
+
       // Проверяем ответ
       bool? isCorrect;
       if (userAnswer.isNotEmpty && task.answer != null) {
@@ -250,25 +282,29 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
               .toLowerCase()
               .trim();
         }
-        
+
         final normalizedUserAnswer = normalizeText(userAnswer);
         final normalizedCorrectAnswer = normalizeText(task.answer!);
         isCorrect = normalizedUserAnswer == normalizedCorrectAnswer;
-        
+
         // Отладочный вывод
         print('Задача ${task.taskNumber}:');
-        print('  Правильный ответ: "${task.answer}" -> "$normalizedCorrectAnswer"');
+        print(
+          '  Правильный ответ: "${task.answer}" -> "$normalizedCorrectAnswer"',
+        );
         print('  Ответ пользователя: "$userAnswer" -> "$normalizedUserAnswer"');
         print('  Совпадают: $isCorrect');
       } else if (task.answer == null) {
         print('⚠️ Задача ${task.taskNumber}: правильный ответ отсутствует');
       }
 
-      completedTasks.add(task.copyWith(
-        userAnswer: userAnswer,
-        userCode: userCode,
-        isCorrect: isCorrect,
-      ));
+      completedTasks.add(
+        task.copyWith(
+          userAnswer: userAnswer,
+          userCode: userCode,
+          isCorrect: isCorrect,
+        ),
+      );
     }
 
     final completedVariant = Variant(
@@ -303,7 +339,9 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Задача ${currentTask.taskNumber} (${_currentTaskIndex + 1}/${widget.variant.tasks.length})'),
+        title: Text(
+          'Задача ${currentTask.taskNumber} (${_currentTaskIndex + 1}/${widget.variant.tasks.length})',
+        ),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: _isLoadingContent
@@ -316,10 +354,11 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                 children: [
                   // Прогресс бар
                   LinearProgressIndicator(
-                    value: (_currentTaskIndex + 1) / widget.variant.tasks.length,
+                    value:
+                        (_currentTaskIndex + 1) / widget.variant.tasks.length,
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Содержимое задачи
                   Card(
                     child: Padding(
@@ -329,9 +368,8 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                         children: [
                           Text(
                             'Условие задачи:',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
                           // Кнопка редактирования условия
@@ -341,16 +379,23 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                               if (taskContent != null)
                                 Chip(
                                   label: const Text('Загружено из файла'),
-                                  avatar: const Icon(Icons.check_circle, size: 18),
+                                  avatar: const Icon(
+                                    Icons.check_circle,
+                                    size: 18,
+                                  ),
                                 ),
                               IconButton(
-                                icon: Icon(_isEditingCondition ? Icons.save : Icons.edit),
+                                icon: Icon(
+                                  _isEditingCondition ? Icons.save : Icons.edit,
+                                ),
                                 onPressed: () {
                                   setState(() {
                                     _isEditingCondition = !_isEditingCondition;
                                   });
                                 },
-                                tooltip: _isEditingCondition ? 'Сохранить' : 'Редактировать условие',
+                                tooltip: _isEditingCondition
+                                    ? 'Сохранить'
+                                    : 'Редактировать условие',
                               ),
                             ],
                           ),
@@ -363,34 +408,70 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                             ),
                             // Показываем изображения графов, если есть
                             if (_taskImages[currentTask.taskNumber] != null &&
-                                _taskImages[currentTask.taskNumber]!.isNotEmpty) ...[
+                                _taskImages[currentTask.taskNumber]!
+                                    .isNotEmpty) ...[
                               const SizedBox(height: 16),
                               Text(
                                 'Графы и схемы:',
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 8),
-                              ..._taskImages[currentTask.taskNumber]!.map((imagePath) {
+                              ..._taskImages[currentTask.taskNumber]!.map((
+                                imagePath,
+                              ) {
+                                final isAsset =
+                                    imagePath.startsWith('desh/') ||
+                                    imagePath.startsWith('packages/');
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
-                                  child: Image.file(
-                                    File(imagePath),
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        padding: const EdgeInsets.all(8),
-                                        color: Theme.of(context).colorScheme.errorContainer,
-                                        child: Text(
-                                          'Не удалось загрузить изображение: ${path.basename(imagePath)}',
-                                          style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onErrorContainer,
-                                          ),
+                                  child: isAsset
+                                      ? Image.asset(
+                                          imagePath,
+                                          fit: BoxFit.contain,
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                                return Container(
+                                                  padding: const EdgeInsets.all(
+                                                    8,
+                                                  ),
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.errorContainer,
+                                                  child: Text(
+                                                    'Не удалось загрузить изображение: ${path.basename(imagePath)}',
+                                                    style: TextStyle(
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .onErrorContainer,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                        )
+                                      : Image.file(
+                                          File(imagePath),
+                                          fit: BoxFit.contain,
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                                return Container(
+                                                  padding: const EdgeInsets.all(
+                                                    8,
+                                                  ),
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.errorContainer,
+                                                  child: Text(
+                                                    'Не удалось загрузить изображение: ${path.basename(imagePath)}',
+                                                    style: TextStyle(
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .onErrorContainer,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
                                         ),
-                                      );
-                                    },
-                                  ),
                                 );
                               }),
                             ],
@@ -398,10 +479,13 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                             // Показываем условие из сервиса или редактируемое поле
                             ConstrainedBox(
                               constraints: BoxConstraints(
-                                maxHeight: MediaQuery.of(context).size.height * 0.4,
+                                maxHeight:
+                                    MediaQuery.of(context).size.height * 0.4,
                               ),
                               child: TextField(
-                                controller: _conditionControllers[currentTask.taskNumber],
+                                controller:
+                                    _conditionControllers[currentTask
+                                        .taskNumber],
                                 maxLines: null,
                                 minLines: 10,
                                 enabled: _isEditingCondition,
@@ -409,9 +493,11 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                                   border: const OutlineInputBorder(),
                                   hintText: 'Введите условие задачи',
                                   filled: !_isEditingCondition,
-                                  fillColor: _isEditingCondition 
-                                      ? null 
-                                      : Theme.of(context).colorScheme.surfaceVariant,
+                                  fillColor: _isEditingCondition
+                                      ? null
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceVariant,
                                 ),
                                 style: const TextStyle(fontFamily: 'monospace'),
                               ),
@@ -423,14 +509,21 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                                   Icon(
                                     Icons.lightbulb_outline,
                                     size: 16,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Text(
                                       'Вы можете отредактировать условие, нажав на кнопку редактирования выше.',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                            color: Theme.of(context).colorScheme.primary,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
                                           ),
                                     ),
                                   ),
@@ -454,9 +547,8 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                           children: [
                             Text(
                               'Данные для задачи:',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 8),
                             SelectableText(
@@ -480,13 +572,13 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                         children: [
                           Text(
                             'Ваш ответ:',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 8),
                           TextField(
-                            controller: _answerControllers[currentTask.taskNumber],
+                            controller:
+                                _answerControllers[currentTask.taskNumber],
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               hintText: 'Введите ответ',
@@ -511,12 +603,12 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                             children: [
                               Text(
                                 'Код решения:',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.bold),
                               ),
                               ElevatedButton.icon(
-                                onPressed: () => _pickCodeFile(currentTask.taskNumber),
+                                onPressed: () =>
+                                    _pickCodeFile(currentTask.taskNumber),
                                 icon: const Icon(Icons.attach_file),
                                 label: const Text('Прикрепить файл'),
                               ),
@@ -526,18 +618,24 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                           if (userCode != null && userCode.isNotEmpty) ...[
                             ConstrainedBox(
                               constraints: BoxConstraints(
-                                maxHeight: MediaQuery.of(context).size.height * 0.3,
+                                maxHeight:
+                                    MediaQuery.of(context).size.height * 0.3,
                               ),
                               child: SingleChildScrollView(
                                 child: Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surfaceVariant,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceVariant,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: SelectableText(
                                     userCode,
-                                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                                    style: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -555,8 +653,11 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                           ] else
                             Text(
                               'Код не прикреплен',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                                   ),
                             ),
                         ],
@@ -608,8 +709,13 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                       onPressed: _finishVariant,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onPrimary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -631,7 +737,6 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
     );
   }
 
-
   @override
   void dispose() {
     for (final controller in _answerControllers.values) {
@@ -643,4 +748,3 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
     super.dispose();
   }
 }
-

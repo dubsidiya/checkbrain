@@ -11,6 +11,7 @@ class TasksPoolService {
   final TasksConditionsJsonService _jsonService = TasksConditionsJsonService();
   final Random _rng = Random();
   Map<int, List<String>>? _assetTaskFilesCache;
+  Map<String, dynamic>? _assetManifestCache;
 
   String _getBasePath() {
     final currentDir = Directory.current.path;
@@ -58,8 +59,10 @@ class TasksPoolService {
   }
 
   Future<Map<String, dynamic>> _loadAssetManifest() async {
+    if (_assetManifestCache != null) return _assetManifestCache!;
     final jsonStr = await rootBundle.loadString('AssetManifest.json');
-    return (jsonDecode(jsonStr) as Map).cast<String, dynamic>();
+    _assetManifestCache = (jsonDecode(jsonStr) as Map).cast<String, dynamic>();
+    return _assetManifestCache!;
   }
 
   /// Получить список файлов условий для номера задачи из assets (мобилка).
@@ -245,6 +248,36 @@ class TasksPoolService {
     String conditionFilePath,
   ) async {
     final List<String> images = [];
+    // 1) If condition path looks like an asset path, find matching image assets via AssetManifest
+    if (conditionFilePath.startsWith('desh/') ||
+        conditionFilePath.startsWith('packages/')) {
+      try {
+        final manifest = await _loadAssetManifest();
+        final prefix = path.dirname(conditionFilePath) + '/';
+        final baseName = path.basenameWithoutExtension(conditionFilePath);
+        final assetImages = manifest.keys.where((k) {
+          if (!k.startsWith(prefix)) return false;
+          final ext = path.extension(k).toLowerCase();
+          if (![
+            '.png',
+            '.jpg',
+            '.jpeg',
+            '.gif',
+            '.svg',
+            '.webp',
+          ].contains(ext)) {
+            return false;
+          }
+          return path.basenameWithoutExtension(k) == baseName;
+        }).toList()..sort();
+        images.addAll(assetImages.cast<String>());
+        return images;
+      } catch (e) {
+        print('Error reading image assets for condition: $e');
+        // Fall through to filesystem attempt
+      }
+    }
+
     try {
       final conditionsDir = path.join(
         _getBasePath(),
@@ -272,6 +305,114 @@ class TasksPoolService {
       print('Error reading images for condition: $e');
     }
     return images;
+  }
+
+  Future<bool> _assetExists(String assetPath) async {
+    try {
+      final manifest = await _loadAssetManifest();
+      return manifest.containsKey(assetPath);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Get images referenced inside the condition text (e.g. "[pic]").
+  ///
+  /// This handles cases like task 14 where a single variant contains multiple sub-items:
+  ///   82) ... [pic]
+  ///   83) ... [pic]
+  /// and the images are stored as:
+  ///   conditions/14/task_14_082.png
+  ///   conditions/14/task_14_083.png
+  ///
+  /// Also keeps the old behavior: include images that share the same base name as the condition file.
+  Future<List<String>> getImagesForTaskContent(
+    int taskNumber,
+    String taskContent, {
+    String? conditionPath,
+    int? variantNumber,
+  }) async {
+    final exts = const ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
+    final List<String> ordered = [];
+    final Set<String> seen = {};
+
+    Future<void> addImagePath(String p) async {
+      if (seen.add(p)) ordered.add(p);
+    }
+
+    // 1) Images with the same base name as the condition file.
+    if (conditionPath != null && conditionPath.isNotEmpty) {
+      final baseImages = await getImagesForCondition(taskNumber, conditionPath);
+      for (final img in baseImages) {
+        await addImagePath(img);
+      }
+    }
+
+    // 2) Images referenced as "[pic]" (extract leading marker number in the same line).
+    final picRegex = RegExp(
+      r'^\s*(\d{1,4})\)\s*.*?\[pic\]',
+      caseSensitive: false,
+      multiLine: true,
+    );
+    final matches = picRegex.allMatches(taskContent).toList();
+    for (final m in matches) {
+      final n = int.tryParse(m.group(1) ?? '');
+      if (n == null) continue;
+      final base = 'task_${taskNumber}_${n.toString().padLeft(3, '0')}';
+      // Prefer assets if available, else filesystem.
+      for (final ext in exts) {
+        final assetPath = 'desh/ege2026kp/conditions/$taskNumber/$base$ext';
+        if (await _assetExists(assetPath)) {
+          await addImagePath(assetPath);
+          break;
+        }
+        // filesystem fallback
+        final fsPath = path.join(
+          _getBasePath(),
+          'conditions',
+          taskNumber.toString(),
+          '$base$ext',
+        );
+        if (await File(fsPath).exists()) {
+          await addImagePath(fsPath);
+          break;
+        }
+      }
+    }
+
+    // 3) If there is a "[pic]" without a leading number, fall back to current variant number.
+    if (taskContent.toLowerCase().contains('[pic]') &&
+        matches.isEmpty &&
+        variantNumber != null) {
+      final base =
+          'task_${taskNumber}_${variantNumber.toString().padLeft(3, '0')}';
+      for (final ext in exts) {
+        final assetPath = 'desh/ege2026kp/conditions/$taskNumber/$base$ext';
+        if (await _assetExists(assetPath)) {
+          await addImagePath(assetPath);
+          break;
+        }
+        final fsPath = path.join(
+          _getBasePath(),
+          'conditions',
+          taskNumber.toString(),
+          '$base$ext',
+        );
+        if (await File(fsPath).exists()) {
+          await addImagePath(fsPath);
+          break;
+        }
+      }
+    }
+
+    return ordered;
+  }
+
+  /// Asset path to a condition file for a specific variant.
+  /// Example: desh/ege2026kp/conditions/14/task_14_081.txt
+  String getTaskAssetPathForVariant(int taskNumber, int variantNumber) {
+    return 'desh/ege2026kp/conditions/$taskNumber/'
+        'task_${taskNumber}_${variantNumber.toString().padLeft(3, '0')}.txt';
   }
 
   /// Получить количество доступных задач по номеру
