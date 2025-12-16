@@ -13,6 +13,7 @@ class TaskSelectionScreen extends StatefulWidget {
   State<TaskSelectionScreen> createState() => _TaskSelectionScreenState();
 }
 
+
 class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTickerProviderStateMixin {
   final AnswersService _answersService = AnswersService();
   final TasksService _tasksService = TasksService();
@@ -169,6 +170,7 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Выбор задач для варианта'),
@@ -187,82 +189,124 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
               children: [
                 Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      // Первая строка: номер варианта и кнопка
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Row(
-                              children: [
-                                const Flexible(
-                                  child: Text('Номер варианта: ', overflow: TextOverflow.ellipsis),
+                  child: Card(
+                    elevation: 3,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 12),
+                        // Первая строка: номер варианта и кнопка
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Row(
+                                  children: [
+                                    const Flexible(
+                                      child: Text('Номер варианта: ', overflow: TextOverflow.ellipsis),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    SizedBox(
+                                      width: 70,
+                                      child: TextField(
+                                        controller: _variantController,
+                                        keyboardType: TextInputType.number,
+                                        decoration: const InputDecoration(
+                                          border: OutlineInputBorder(),
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                          isDense: true,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  width: 80,
-                                  child: TextField(
-                                    controller: _variantController,
-                                    keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                      isDense: true,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerRight,
+                                  child: FilledButton.icon(
+                                    onPressed: _startVariant,
+                                    icon: const Icon(Icons.play_arrow, size: 16),
+                                    label: const Text('Начать'),
+                                    style: FilledButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: ElevatedButton.icon(
-                                onPressed: _startVariant,
-                                icon: const Icon(Icons.play_arrow, size: 18),
-                                label: const Text('Начать вариант', style: TextStyle(fontSize: 14)),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        const SizedBox(height: 14),
+                        // Вторая строка: статистика и кнопки
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    Chip(
+                                      avatar: const Icon(Icons.list_alt, size: 16),
+                                      label: Text(
+                                        'Номеров: ${_selectedTaskCounts.length}',
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    ),
+                                    Chip(
+                                      avatar: const Icon(Icons.format_list_numbered, size: 16),
+                                      label: Text(
+                                        'Всего: ${_selectedTaskCounts.values.fold<int>(0, (p, e) => p + e)}',
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
+                              if (_tabController.index == 1)
+                                TextButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      if (_selectedTaskCounts.length == _availableTasks.length) {
+                                        _selectedTaskCounts.clear();
+                                      } else {
+                                        _selectedTaskCounts = {
+                                          for (final n in _availableTasks) n: 1
+                                        };
+                                      }
+                                    });
+                                  },
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      _selectedTaskCounts.length == _availableTasks.length
+                                          ? 'Снять все'
+                                          : 'Выбрать все',
+                                      style: theme.textTheme.bodySmall,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // Вторая строка: статистика и кнопки
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Выбрано номеров: ${_selectedTaskCounts.length}, всего задач: ${_selectedTaskCounts.values.fold<int>(0, (p, e) => p + e)}',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          if (_tabController.index == 1)
-                            TextButton(
-                              onPressed: () {
-                                setState(() {
-                                  if (_selectedTaskCounts.length == _availableTasks.length) {
-                                    _selectedTaskCounts.clear();
-                                  } else {
-                                    _selectedTaskCounts = {
-                                      for (final n in _availableTasks) n: 1
-                                    };
-                                  }
-                                });
-                              },
-                              child: Text(
-                                _selectedTaskCounts.length == _availableTasks.length
-                                    ? 'Снять все'
-                                    : 'Выбрать все',
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
                   ),
                 ),
                 // Контент вкладок: "По темам" и "По номерам"
@@ -400,91 +444,141 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
               ],
             ),
           )
-        : GridView.builder(
+        : ListView.builder(
             padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 1.5,
-            ),
             itemCount: _availableTasks.length,
             itemBuilder: (context, index) {
               final taskNum = _availableTasks[index];
               final count = _selectedTaskCounts[taskNum] ?? 0;
               final isSelected = count > 0;
-              return InkWell(
-                onTap: () => _toggleTaskNumber(taskNum),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  decoration: BoxDecoration(
+              final theme = Theme.of(context);
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                elevation: isSelected ? 4 : 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
                     color: isSelected
-                        ? Theme.of(context).colorScheme.primaryContainer
-                        : Theme.of(context).colorScheme.surface,
-                    border: Border.all(
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.outline,
-                      width: isSelected ? 2 : 1,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outlineVariant,
+                    width: isSelected ? 2 : 1,
                   ),
+                ),
+                color: isSelected
+                    ? theme.colorScheme.primaryContainer
+                    : theme.colorScheme.surface,
+                child: InkWell(
+                  onTap: () => _toggleTaskNumber(taskNum),
+                  borderRadius: BorderRadius.circular(12),
                   child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    child: Row(
                       children: [
-                        Flexible(
-                          child: Text(
-                            'Задача',
-                            style: Theme.of(context).textTheme.labelSmall,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
+                        // Номер задачи в круге
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.surfaceContainerHighest,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$taskNum',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected
+                                        ? theme.colorScheme.onPrimary
+                                        : theme.colorScheme.onSurface,
+                                  ),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Flexible(
+                        const SizedBox(width: 10),
+                        // Название задачи
+                        Expanded(
                           child: Text(
-                            '$taskNum',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                            'Задача $taskNum',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
                                   color: isSelected
-                                      ? Theme.of(context).colorScheme.primary
+                                      ? theme.colorScheme.onPrimaryContainer
                                       : null,
                                 ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                           ),
                         ),
-                        if (isSelected) ...[
-                          const SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline, size: 18),
-                                padding: EdgeInsets.zero,
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () => _changeTaskCount(taskNum, -1),
-                                tooltip: 'Уменьшить',
-                              ),
-                              Text(
-                                '$count шт.',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
+                        // Счётчик и кнопки управления
+                        if (isSelected)
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () => _changeTaskCount(taskNum, -1),
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(4),
+                                        child: Icon(
+                                          Icons.remove_circle_outline,
+                                          size: 20,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
                                     ),
+                                  ),
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primary,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '$count',
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: theme.colorScheme.onPrimary,
+                                            fontSize: 12,
+                                          ),
+                                    ),
+                                  ),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () => _changeTaskCount(taskNum, 1),
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(4),
+                                        child: Icon(
+                                          Icons.add_circle_outline,
+                                          size: 20,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.add_circle_outline, size: 18),
-                                padding: EdgeInsets.zero,
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () => _changeTaskCount(taskNum, 1),
-                                tooltip: 'Добавить ещё одну',
-                              ),
-                            ],
+                            ),
+                          )
+                        else
+                          Icon(
+                            Icons.radio_button_unchecked,
+                            color: theme.colorScheme.outline,
+                            size: 20,
                           ),
-                        ],
                       ],
                     ),
                   ),
