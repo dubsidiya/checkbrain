@@ -19,7 +19,8 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
   final TasksPoolService _tasksPoolService = TasksPoolService();
   
   List<int> _availableTasks = [];
-  Set<int> _selectedTaskNumbers = {}; // Номера задач для включения в вариант
+  // Ключ: номер задачи, значение: сколько задач этого номера добавить
+  Map<int, int> _selectedTaskCounts = {};
   Set<String> _selectedTopics = {};
   bool _isLoading = true;
   final TextEditingController _variantController = TextEditingController(text: '1');
@@ -60,10 +61,22 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
 
   void _toggleTaskNumber(int taskNumber) {
     setState(() {
-      if (_selectedTaskNumbers.contains(taskNumber)) {
-        _selectedTaskNumbers.remove(taskNumber);
+      if (_selectedTaskCounts.containsKey(taskNumber)) {
+        _selectedTaskCounts.remove(taskNumber);
       } else {
-        _selectedTaskNumbers.add(taskNumber);
+        _selectedTaskCounts[taskNumber] = 1;
+      }
+    });
+  }
+
+  void _changeTaskCount(int taskNumber, int delta) {
+    final current = _selectedTaskCounts[taskNumber] ?? 0;
+    final next = current + delta;
+    setState(() {
+      if (next <= 0) {
+        _selectedTaskCounts.remove(taskNumber);
+      } else {
+        _selectedTaskCounts[taskNumber] = next;
       }
     });
   }
@@ -77,16 +90,18 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
     }
 
     setState(() {
-      _selectedTaskNumbers.clear();
+      _selectedTaskCounts.clear();
       for (final topicId in _selectedTopics) {
         final taskNumbers = TaskTopics.getTaskNumbersByTopic(topicId);
-        _selectedTaskNumbers.addAll(taskNumbers);
+        for (final num in taskNumbers) {
+          _selectedTaskCounts[num] = 1;
+        }
       }
     });
   }
 
   Future<void> _startVariant() async {
-    if (_selectedTaskNumbers.isEmpty) {
+    if (_selectedTaskCounts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Выберите хотя бы один номер задачи')),
       );
@@ -106,28 +121,31 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
 
     // Создаем список задач для варианта
     final List<Task> tasks = [];
-    final taskNumbersList = _selectedTaskNumbers.toList()..sort();
-    
-    // Для каждого номера берём СЛУЧАЙНУЮ задачу из доступных условий,
-    // но порядок самих номеров задач не перемешиваем.
+    final taskNumbersList = _selectedTaskCounts.keys.toList()..sort();
+
+    // Для каждого номера берём СЛУЧАЙНУЮ задачу из доступных условий
+    // (по количеству, указанному пользователем), но порядок самих номеров задач не перемешиваем.
     for (final taskNum in taskNumbersList) {
-      final picked = await _tasksPoolService.getRandomTaskConditionWithVariant(taskNum);
-      final taskCondition = (picked?['condition'] as String?) ?? '';
-      final conditionVariantNum = picked?['variant'] as int?;
+      final repeats = _selectedTaskCounts[taskNum] ?? 1;
+      for (int i = 0; i < repeats; i++) {
+        final picked = await _tasksPoolService.getRandomTaskConditionWithVariant(taskNum);
+        final taskCondition = (picked?['condition'] as String?) ?? '';
+        final conditionVariantNum = picked?['variant'] as int?;
 
-      // В answers.csv ответы привязаны к номеру варианта УСЛОВИЯ (из имени файла task_N_VVV.txt).
-      // Если вариант не удалось определить — считаем, что ответа нет.
-      final answer = conditionVariantNum != null
-          ? _answersService.getAnswer(conditionVariantNum, taskNum)
-          : null;
+        // В answers.csv ответы привязаны к номеру варианта УСЛОВИЯ (из имени файла task_N_VVV.txt).
+        // Если вариант не удалось определить — считаем, что ответа нет.
+        final answer = conditionVariantNum != null
+            ? _answersService.getAnswer(conditionVariantNum, taskNum)
+            : null;
 
-      tasks.add(Task(
-        taskNumber: taskNum,
-        // task.variantNumber используем как номер варианта конкретного условия
-        variantNumber: conditionVariantNum ?? variantNum,
-        answer: answer,
-        solutionCode: taskCondition, // Текст условия
-      ));
+        tasks.add(Task(
+          taskNumber: taskNum,
+          // task.variantNumber используем как номер варианта конкретного условия
+          variantNumber: conditionVariantNum ?? variantNum,
+          answer: answer,
+          solutionCode: taskCondition, // Текст условия
+        ));
+      }
     }
 
     // Задачи остаются в порядке по номерам (не перемешиваем)
@@ -220,22 +238,24 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Выбрано номеров: ${_selectedTaskNumbers.length}',
+                            'Выбрано номеров: ${_selectedTaskCounts.length}, всего задач: ${_selectedTaskCounts.values.fold<int>(0, (p, e) => p + e)}',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           if (_tabController.index == 1)
                             TextButton(
                               onPressed: () {
                                 setState(() {
-                                  if (_selectedTaskNumbers.length == _availableTasks.length) {
-                                    _selectedTaskNumbers.clear();
+                                  if (_selectedTaskCounts.length == _availableTasks.length) {
+                                    _selectedTaskCounts.clear();
                                   } else {
-                                    _selectedTaskNumbers = _availableTasks.toSet();
+                                    _selectedTaskCounts = {
+                                      for (final n in _availableTasks) n: 1
+                                    };
                                   }
                                 });
                               },
                               child: Text(
-                                _selectedTaskNumbers.length == _availableTasks.length
+                                _selectedTaskCounts.length == _availableTasks.length
                                     ? 'Снять все'
                                     : 'Выбрать все',
                               ),
@@ -324,9 +344,10 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
                             Wrap(
                               spacing: 4,
                               children: topic.taskNumbers.map((num) {
+                                final inSelection = _selectedTaskCounts.containsKey(num);
                                 return Chip(
                                   label: Text('$num'),
-                                  backgroundColor: _selectedTaskNumbers.contains(num)
+                                  backgroundColor: inSelection
                                       ? Theme.of(context).colorScheme.primaryContainer
                                       : null,
                                 );
@@ -390,7 +411,8 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
             itemCount: _availableTasks.length,
             itemBuilder: (context, index) {
               final taskNum = _availableTasks[index];
-              final isSelected = _selectedTaskNumbers.contains(taskNum);
+              final count = _selectedTaskCounts[taskNum] ?? 0;
+              final isSelected = count > 0;
               return InkWell(
                 onTap: () => _toggleTaskNumber(taskNum),
                 borderRadius: BorderRadius.circular(8),
@@ -436,11 +458,31 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
                           ),
                         ),
                         if (isSelected) ...[
-                          const SizedBox(height: 2),
-                          Icon(
-                            Icons.check_circle,
-                            color: Theme.of(context).colorScheme.primary,
-                            size: 18,
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline, size: 18),
+                                padding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () => _changeTaskCount(taskNum, -1),
+                                tooltip: 'Уменьшить',
+                              ),
+                              Text(
+                                '$count шт.',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add_circle_outline, size: 18),
+                                padding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () => _changeTaskCount(taskNum, 1),
+                                tooltip: 'Добавить ещё одну',
+                              ),
+                            ],
                           ),
                         ],
                       ],
