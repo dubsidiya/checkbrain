@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 
@@ -78,19 +80,42 @@ class TaskConditionContent extends StatelessWidget {
   }
 
   Widget _buildImage(BuildContext context, String src) {
+    const padding = EdgeInsets.symmetric(vertical: 8);
+
+    // data:image/png;base64,... — декодируем и показываем через Image.memory
     if (src.startsWith('data:image')) {
-      // data URL — не поддерживаем отображение напрямую в Image.network
-      return const SizedBox.shrink();
+      final base64 = _parseDataImageBase64(src);
+      if (base64 != null && base64.isNotEmpty) {
+        try {
+          final bytes = base64Decode(base64);
+          return Padding(
+            padding: padding,
+            child: Image.memory(
+              bytes,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) =>
+                  _buildImagePlaceholder(context),
+            ),
+          );
+        } catch (_) {
+          return Padding(
+            padding: padding,
+            child: _buildImagePlaceholder(context),
+          );
+        }
+      }
     }
+
+    // Сетевые изображения
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: padding,
       child: Image.network(
         src,
         fit: BoxFit.contain,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return SizedBox(
-            height: 120,
+            height: 100,
             child: Center(
               child: CircularProgressIndicator(
                 value: loadingProgress.expectedTotalBytes != null
@@ -101,33 +126,47 @@ class TaskConditionContent extends StatelessWidget {
             ),
           );
         },
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.errorContainer,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.broken_image_outlined,
-                  color: Theme.of(context).colorScheme.onErrorContainer,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildImagePlaceholder(context),
+      ),
+    );
+  }
+
+  /// Из data:image/png;base64,XXXX возвращает XXXX (без префикса).
+  static String? _parseDataImageBase64(String dataUrl) {
+    final comma = dataUrl.indexOf(',');
+    if (comma < 0) return null;
+    return dataUrl.substring(comma + 1).trim();
+  }
+
+  /// Нейтральный плейсхолдер при ошибке загрузки (без красного блока).
+  Widget _buildImagePlaceholder(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.image_not_supported_outlined,
+            size: 20,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Изображение',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Не удалось загрузить изображение',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onErrorContainer,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
