@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import 'package:path/path.dart' as path;
 import '../models/task.dart';
 import '../services/tasks_service.dart';
 import '../services/task_conditions_service.dart';
-import '../services/tasks_conditions_json_service.dart';
-import '../services/tasks_pool_service.dart';
 import '../widgets/task_condition_content.dart';
 import 'results_screen.dart';
 
@@ -21,16 +18,11 @@ class TaskSolvingScreen extends StatefulWidget {
 
 class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
   final TasksService _tasksService = TasksService();
-  final TasksConditionsJsonService _conditionsService =
-      TasksConditionsJsonService();
-  final TasksPoolService _tasksPoolService = TasksPoolService();
   final Map<int, TextEditingController> _answerControllers = {};
   final Map<int, TextEditingController> _conditionControllers = {};
   final Map<int, String> _userCodes = {};
   final Map<int, String?> _taskContents = {};
   final Map<int, String?> _dataContents = {};
-  final Map<int, List<String>> _taskImages =
-      {}; // Пути к изображениям для каждой задачи
 
   int _currentTaskIndex = 0;
   bool _isLoadingContent = false;
@@ -55,48 +47,15 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
         // Сохраняем в _taskContents сразу
         _taskContents[task.taskNumber] = condition;
       } else {
-        // Fallback: если условие не было сохранено, загружаем из JSON
-        try {
-          final jsonCondition = await _conditionsService.getRandomCondition(
-            task.taskNumber,
-          );
-          if (jsonCondition != null && jsonCondition.isNotEmpty) {
-            condition = jsonCondition;
-            _taskContents[task.taskNumber] = condition;
-          }
-        } catch (e) {
-          print('Error loading condition from JSON: $e');
-        }
-
-        // Если все еще нет, используем fallback
-        if (condition.isEmpty) {
-          condition = TaskConditionsService.getTaskConditionWithFallback(
-            task.taskNumber,
-          );
-        }
+        condition = TaskConditionsService.getTaskConditionWithFallback(
+          task.taskNumber,
+        );
       }
 
       _conditionControllers[task.taskNumber] = TextEditingController(
         text: condition,
       );
     }
-  }
-
-  Widget _buildImageError(BuildContext context, String imagePath) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        'Не удалось загрузить: ${path.basename(imagePath)}',
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onErrorContainer,
-          fontSize: 12,
-        ),
-      ),
-    );
   }
 
   Widget _buildSectionCard(
@@ -170,44 +129,16 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
             currentTask.solutionCode!;
       }
     } else {
-      // Fallback: если условие не было сохранено, загружаем из JSON (но только один раз)
       if (_taskContents[currentTask.taskNumber] == null) {
-        try {
-          final jsonCondition = await _conditionsService.getRandomCondition(
+        setState(() {
+          _taskContents[currentTask.taskNumber] =
+              TaskConditionsService.getTaskConditionWithFallback(
             currentTask.taskNumber,
           );
-          if (jsonCondition != null && jsonCondition.isNotEmpty) {
-            setState(() {
-              _taskContents[currentTask.taskNumber] = jsonCondition;
-            });
-            if (_conditionControllers[currentTask.taskNumber] != null) {
-              _conditionControllers[currentTask.taskNumber]!.text =
-                  jsonCondition;
-            }
-          }
-        } catch (e) {
-          print('Error loading condition from JSON: $e');
-        }
-      }
-
-      // Если все еще нет условия, пробуем загрузить из файлов
-      if (_taskContents[currentTask.taskNumber] == null) {
-        try {
-          final taskFiles = await _tasksService.getTaskFiles(
-            currentTask.taskNumber,
-          );
-          if (taskFiles.isNotEmpty) {
-            final content = await _tasksService.readFileContent(
-              taskFiles.first,
-            );
-            if (content != null && content.isNotEmpty) {
-              setState(() {
-                _taskContents[currentTask.taskNumber] = content;
-              });
-            }
-          }
-        } catch (e) {
-          print('Error loading task content: $e');
+        });
+        if (_conditionControllers[currentTask.taskNumber] != null) {
+          _conditionControllers[currentTask.taskNumber]!.text =
+              _taskContents[currentTask.taskNumber] ?? '';
         }
       }
     }
@@ -226,42 +157,6 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
     } catch (e) {
       print('Error loading data content: $e');
       // Продолжаем работу даже если файл не загрузился
-    }
-
-    // Загружаем изображения для задачи (графы и т.д.)
-    try {
-      if (_taskImages[currentTask.taskNumber] == null) {
-        // Пытаемся найти файл условия именно для этого номера и варианта
-        // На Android/iOS файловый путь, как правило, отсутствует — тогда используем asset path.
-        final taskFilePath = await _tasksPoolService.getTaskFilePathForVariant(
-          currentTask.taskNumber,
-          currentTask.variantNumber,
-        );
-        final conditionPath =
-            taskFilePath ??
-            _tasksPoolService.getTaskAssetPathForVariant(
-              currentTask.taskNumber,
-              currentTask.variantNumber,
-            );
-
-        final content =
-            (_taskContents[currentTask.taskNumber] ??
-                    currentTask.solutionCode ??
-                    '')
-                .toString();
-        final images = await _tasksPoolService.getImagesForTaskContent(
-          currentTask.taskNumber,
-          content,
-          conditionPath: conditionPath,
-          variantNumber: currentTask.variantNumber,
-        );
-        setState(() {
-          _taskImages[currentTask.taskNumber] = images;
-        });
-      }
-    } catch (e) {
-      print('Error loading task images: $e');
-      // Продолжаем работу даже если изображения не загрузились
     }
 
     setState(() => _isLoadingContent = false);
@@ -527,49 +422,6 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                                 ),
                               ),
                             ),
-                            if (_taskImages[currentTask.taskNumber] != null &&
-                                _taskImages[currentTask.taskNumber]!
-                                    .isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              Text(
-                                'Графы и схемы:',
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 8),
-                              ..._taskImages[currentTask.taskNumber]!.map((
-                                imagePath,
-                              ) {
-                                final isAsset =
-                                    imagePath.startsWith('desh/') ||
-                                    imagePath.startsWith('packages/');
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: isAsset
-                                        ? Image.asset(
-                                            imagePath,
-                                            fit: BoxFit.contain,
-                                            errorBuilder:
-                                                (context, error, stackTrace) {
-                                              return _buildImageError(
-                                                  context, imagePath);
-                                            },
-                                          )
-                                        : Image.file(
-                                            File(imagePath),
-                                            fit: BoxFit.contain,
-                                            errorBuilder:
-                                                (context, error, stackTrace) {
-                                              return _buildImageError(
-                                                  context, imagePath);
-                                            },
-                                          ),
-                                  ),
-                                );
-                              }),
-                            ],
                           ] else ...[
                             ConstrainedBox(
                               constraints: BoxConstraints(

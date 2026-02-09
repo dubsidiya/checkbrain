@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../models/task_topic.dart';
-import '../services/answers_service.dart';
-import '../services/tasks_service.dart';
 import '../services/tasks_pool_service.dart';
 import 'task_solving_screen.dart';
 
@@ -14,8 +12,6 @@ class TaskSelectionScreen extends StatefulWidget {
 }
 
 class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTickerProviderStateMixin {
-  final AnswersService _answersService = AnswersService();
-  final TasksService _tasksService = TasksService();
   final TasksPoolService _tasksPoolService = TasksPoolService();
   
   List<int> _availableTasks = [];
@@ -47,11 +43,13 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
   Future<void> _loadTasks() async {
     setState(() => _isLoading = true);
     try {
-      final tasks = await _tasksService.getAvailableTaskNumbers();
       final kompege = await _tasksPoolService.hasKompegeTasks();
+      final tasks = kompege
+          ? await _tasksPoolService.getAvailableTaskNumbers()
+          : <int>[];
       setState(() {
-        _availableTasks = tasks;
         _kompegeAvailable = kompege;
+        _availableTasks = tasks;
         _isLoading = false;
       });
     } catch (e) {
@@ -121,15 +119,10 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
       return;
     }
 
-    // Загружаем ответы
-    await _answersService.loadAnswers();
-
-    // Создаем список задач для варианта
+    // Создаем список задач для варианта (только из КЕГЭ)
     final List<Task> tasks = [];
     final taskNumbersList = _selectedTaskCounts.keys.toList()..sort();
 
-    // Для каждого номера берём СЛУЧАЙНУЮ задачу из доступных условий
-    // (по количеству, указанному пользователем), но порядок самих номеров задач не перемешиваем.
     for (final taskNum in taskNumbersList) {
       final repeats = _selectedTaskCounts[taskNum] ?? 1;
       for (int i = 0; i < repeats; i++) {
@@ -137,23 +130,26 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
           taskNum,
           difficulty: _selectedDifficulty,
         );
-        final taskCondition = (picked?['condition'] as String?) ?? '';
-        final conditionVariantNum = picked?['variant'] as int?;
-
-        // Ответ: из КЕГЭ (picked['answer']) или из answers.csv по номеру варианта.
-        final answer = (picked?['answer'] as String?) ??
-            (conditionVariantNum != null
-                ? _answersService.getAnswer(conditionVariantNum, taskNum)
-                : null);
+        if (picked == null) continue;
+        final taskCondition = (picked['condition'] as String?) ?? '';
+        final answer = picked['answer'] as String?;
 
         tasks.add(Task(
           taskNumber: taskNum,
-          // task.variantNumber используем как номер варианта конкретного условия
-          variantNumber: conditionVariantNum ?? variantNum,
+          variantNumber: variantNum,
           answer: answer,
-          solutionCode: taskCondition, // Текст условия
+          solutionCode: taskCondition,
         ));
       }
+    }
+
+    if (tasks.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось загрузить задачи. Проверьте assets/kompege_tasks.json')),
+        );
+      }
+      return;
     }
 
     // Задачи остаются в порядке по номерам (не перемешиваем)
@@ -497,7 +493,7 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Убедитесь, что папка desh/ege2026kp существует\nи содержит папки с задачами (1solve, 2solve, и т.д.)',
+                  'Загрузите задачи КЕГЭ: выполните\nscripts/kompege/extract_all_tasks.js\nи обновите assets/kompege_tasks.json',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,

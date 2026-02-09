@@ -99,6 +99,14 @@ class KompegeTasksService {
     return list.length;
   }
 
+  /// Номера задач, для которых есть хотя бы одна задача (1–27).
+  Future<List<int>> getAvailableTaskNumbers() async {
+    await _load();
+    final keys = _byTaskNumber?.keys.toList() ?? [];
+    keys.sort();
+    return keys;
+  }
+
   /// Уникальные уровни сложности в данных (0, 1, 2, 3).
   Future<List<int>> getDifficultyLevels() async {
     await _load();
