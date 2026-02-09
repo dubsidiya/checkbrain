@@ -7,6 +7,7 @@ import '../services/tasks_service.dart';
 import '../services/task_conditions_service.dart';
 import '../services/tasks_conditions_json_service.dart';
 import '../services/tasks_pool_service.dart';
+import '../widgets/task_condition_content.dart';
 import 'results_screen.dart';
 
 class TaskSolvingScreen extends StatefulWidget {
@@ -79,6 +80,76 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
         text: condition,
       );
     }
+  }
+
+  Widget _buildImageError(BuildContext context, String imagePath) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        'Не удалось загрузить: ${path.basename(imagePath)}',
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onErrorContainer,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard(
+    BuildContext context, {
+    required String label,
+    required Widget child,
+    Widget? trailing,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.6),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primaryContainer
+                        .withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    label,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                  ),
+                ),
+                if (trailing != null) ...[const Spacer(), trailing],
+              ],
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadTaskContent() async {
@@ -340,53 +411,93 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Задача ${currentTask.taskNumber} (${_currentTaskIndex + 1}/${widget.variant.tasks.length})',
+          'Задача ${currentTask.taskNumber}',
         ),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        centerTitle: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 1,
       ),
       body: _isLoadingContent
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Прогресс бар
-                  LinearProgressIndicator(
-                    value:
-                        (_currentTaskIndex + 1) / widget.variant.tasks.length,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value:
+                          (_currentTaskIndex + 1) / widget.variant.tasks.length,
+                      minHeight: 6,
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Содержимое задачи
                   Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .outlineVariant
+                            .withValues(alpha: 0.6),
+                      ),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Условие задачи:',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          // Кнопка редактирования условия
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              if (taskContent != null)
-                                Chip(
-                                  label: const Text('Загружено из файла'),
-                                  avatar: const Icon(
-                                    Icons.check_circle,
-                                    size: 18,
-                                  ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer
+                                      .withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
+                                child: Text(
+                                  'Условие задачи',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onPrimaryContainer,
+                                      ),
+                                ),
+                              ),
+                              const Spacer(),
+                              if (taskContent != null)
+                                Icon(
+                                  Icons.article_outlined,
+                                  size: 18,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withValues(alpha: 0.8),
+                                ),
+                              const SizedBox(width: 4),
                               IconButton(
                                 icon: Icon(
-                                  _isEditingCondition ? Icons.save : Icons.edit,
+                                  _isEditingCondition ? Icons.save : Icons.edit_outlined,
+                                  size: 22,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -396,17 +507,26 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                                 tooltip: _isEditingCondition
                                     ? 'Сохранить'
                                     : 'Редактировать условие',
+                                style: IconButton.styleFrom(
+                                  foregroundColor:
+                                      Theme.of(context).colorScheme.primary,
+                                ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                           if (taskContent != null && !_isEditingCondition) ...[
-                            // Показываем загруженное условие из файла
-                            SelectableText(
-                              taskContent,
-                              style: const TextStyle(fontFamily: 'monospace'),
+                            Container(
+                              constraints: BoxConstraints(
+                                maxHeight:
+                                    MediaQuery.of(context).size.height * 0.5,
+                              ),
+                              child: SingleChildScrollView(
+                                child: TaskConditionContent(
+                                  content: taskContent,
+                                ),
+                              ),
                             ),
-                            // Показываем изображения графов, если есть
                             if (_taskImages[currentTask.taskNumber] != null &&
                                 _taskImages[currentTask.taskNumber]!
                                     .isNotEmpty) ...[
@@ -414,7 +534,7 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                               Text(
                                 'Графы и схемы:',
                                 style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                    ?.copyWith(fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(height: 8),
                               ..._taskImages[currentTask.taskNumber]!.map((
@@ -425,58 +545,32 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                                     imagePath.startsWith('packages/');
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
-                                  child: isAsset
-                                      ? Image.asset(
-                                          imagePath,
-                                          fit: BoxFit.contain,
-                                          errorBuilder:
-                                              (context, error, stackTrace) {
-                                                return Container(
-                                                  padding: const EdgeInsets.all(
-                                                    8,
-                                                  ),
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).colorScheme.errorContainer,
-                                                  child: Text(
-                                                    'Не удалось загрузить изображение: ${path.basename(imagePath)}',
-                                                    style: TextStyle(
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .onErrorContainer,
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                        )
-                                      : Image.file(
-                                          File(imagePath),
-                                          fit: BoxFit.contain,
-                                          errorBuilder:
-                                              (context, error, stackTrace) {
-                                                return Container(
-                                                  padding: const EdgeInsets.all(
-                                                    8,
-                                                  ),
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).colorScheme.errorContainer,
-                                                  child: Text(
-                                                    'Не удалось загрузить изображение: ${path.basename(imagePath)}',
-                                                    style: TextStyle(
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .onErrorContainer,
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                        ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: isAsset
+                                        ? Image.asset(
+                                            imagePath,
+                                            fit: BoxFit.contain,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                              return _buildImageError(
+                                                  context, imagePath);
+                                            },
+                                          )
+                                        : Image.file(
+                                            File(imagePath),
+                                            fit: BoxFit.contain,
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                              return _buildImageError(
+                                                  context, imagePath);
+                                            },
+                                          ),
+                                  ),
                                 );
                               }),
                             ],
                           ] else ...[
-                            // Показываем условие из сервиса или редактируемое поле
                             ConstrainedBox(
                               constraints: BoxConstraints(
                                 maxHeight:
@@ -490,40 +584,46 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                                 minLines: 10,
                                 enabled: _isEditingCondition,
                                 decoration: InputDecoration(
-                                  border: const OutlineInputBorder(),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                   hintText: 'Введите условие задачи',
                                   filled: !_isEditingCondition,
                                   fillColor: _isEditingCondition
                                       ? null
-                                      : Theme.of(
-                                          context,
-                                        ).colorScheme.surfaceVariant,
+                                      : Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest
+                                          .withValues(alpha: 0.5),
                                 ),
-                                style: const TextStyle(fontFamily: 'monospace'),
+                                style: const TextStyle(
+                                    fontFamily: 'monospace', fontSize: 14),
                               ),
                             ),
                             if (!_isEditingCondition) ...[
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
                               Row(
                                 children: [
                                   Icon(
                                     Icons.lightbulb_outline,
-                                    size: 16,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
+                                    size: 18,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withValues(alpha: 0.9),
                                   ),
-                                  const SizedBox(width: 4),
+                                  const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Вы можете отредактировать условие, нажав на кнопку редактирования выше.',
+                                      'Нажмите карандаш выше, чтобы отредактировать условие.',
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
                                           ?.copyWith(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.primary,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary
+                                                .withValues(alpha: 0.9),
                                           ),
                                     ),
                                   ),
@@ -535,198 +635,182 @@ class _TaskSolvingScreenState extends State<TaskSolvingScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Данные для задачи
                   if (dataContent != null) ...[
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Данные для задачи:',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 8),
-                            SelectableText(
-                              dataContent,
-                              style: const TextStyle(fontFamily: 'monospace'),
-                            ),
-                          ],
-                        ),
+                    _buildSectionCard(
+                      context,
+                      label: 'Данные для задачи',
+                      child: SelectableText(
+                        dataContent,
+                        style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 14),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                   ],
 
                   // Поле для ввода ответа
-                  // ВАЖНО: правильный ответ показываем только в результатах, а не во время решения
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Ваш ответ:',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller:
-                                _answerControllers[currentTask.taskNumber],
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              hintText: 'Введите ответ',
-                            ),
-                            maxLines: 3,
-                          ),
-                        ],
+                  _buildSectionCard(
+                    context,
+                    label: 'Ваш ответ',
+                    child: TextField(
+                      controller:
+                          _answerControllers[currentTask.taskNumber],
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        hintText: 'Введите ответ',
+                        filled: true,
+                        fillColor: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.5),
                       ),
+                      maxLines: 3,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
                   // Прикрепление кода
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  _buildSectionCard(
+                    context,
+                    label: 'Код решения',
+                    trailing: ElevatedButton.icon(
+                      onPressed: () =>
+                          _pickCodeFile(currentTask.taskNumber),
+                      icon: const Icon(Icons.attach_file, size: 18),
+                      label: const Text('Прикрепить файл'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    child: userCode != null && userCode.isNotEmpty
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Код решения:',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: () =>
-                                    _pickCodeFile(currentTask.taskNumber),
-                                icon: const Icon(Icons.attach_file),
-                                label: const Text('Прикрепить файл'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          if (userCode != null && userCode.isNotEmpty) ...[
-                            ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxHeight:
-                                    MediaQuery.of(context).size.height * 0.3,
-                              ),
-                              child: SingleChildScrollView(
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.surfaceVariant,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: SelectableText(
-                                    userCode,
-                                    style: const TextStyle(
-                                      fontFamily: 'monospace',
-                                      fontSize: 12,
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxHeight:
+                                      MediaQuery.of(context).size.height * 0.28,
+                                ),
+                                child: SingleChildScrollView(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest
+                                          .withValues(alpha: 0.6),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: SelectableText(
+                                      userCode,
+                                      style: const TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  _userCodes.remove(currentTask.taskNumber);
-                                });
-                              },
-                              icon: const Icon(Icons.delete),
-                              label: const Text('Удалить код'),
-                            ),
-                          ] else
-                            Text(
-                              'Код не прикреплен',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                        ],
-                      ),
-                    ),
+                              const SizedBox(height: 10),
+                              TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _userCodes.remove(currentTask.taskNumber);
+                                  });
+                                },
+                                icon: const Icon(Icons.delete_outline, size: 18),
+                                label: const Text('Удалить код'),
+                              ),
+                            ],
+                          )
+                        : Text(
+                            'Код не прикреплен',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
                   ),
                 ],
               ),
             ),
       bottomNavigationBar: SafeArea(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            boxShadow: [
+              BoxShadow(
+                color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
           child: Row(
             children: [
-              SizedBox(
-                width: 48,
-                child: IconButton(
-                  onPressed: _currentTaskIndex > 0 ? _previousTask : null,
-                  icon: const Icon(Icons.arrow_back),
-                  tooltip: 'Предыдущая задача',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+              IconButton.filledTonal(
+                onPressed: _currentTaskIndex > 0 ? _previousTask : null,
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Предыдущая задача',
+                style: IconButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  '${_currentTaskIndex + 1} / ${widget.variant.tasks.length}',
-                  style: Theme.of(context).textTheme.titleMedium,
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_currentTaskIndex + 1} из ${widget.variant.tasks.length}',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
+              const SizedBox(width: 12),
               if (_currentTaskIndex < widget.variant.tasks.length - 1)
-                SizedBox(
-                  width: 48,
-                  child: IconButton(
-                    onPressed: _nextTask,
-                    icon: const Icon(Icons.arrow_forward),
-                    tooltip: 'Следующая задача',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                IconButton.filledTonal(
+                  onPressed: _nextTask,
+                  icon: const Icon(Icons.arrow_forward),
+                  tooltip: 'Следующая задача',
+                  style: IconButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 )
               else
-                Flexible(
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: ElevatedButton(
-                      onPressed: _finishVariant,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.check, size: 18),
-                          SizedBox(width: 4),
-                          Text('Завершить', style: TextStyle(fontSize: 14)),
-                        ],
-                      ),
+                FilledButton.icon(
+                  onPressed: _finishVariant,
+                  icon: const Icon(Icons.check_rounded, size: 20),
+                  label: const Text('Завершить'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),

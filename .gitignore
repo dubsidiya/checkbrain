@@ -47,4 +47,14 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# КЕГЭ: снятые/сгенерированные данные (скрипты в scripts/kompege/)
+kompege_archive_page.html
+kompege_api_found.json
+kompege_variants_list.json
+kompege_variant_page.html
+kompege_variant_*.html
+kompege_variant_*_responses.json
+kompege_variant_*_*.json
+kompege_data/
+
 

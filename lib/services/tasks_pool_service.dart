@@ -4,11 +4,13 @@ import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'tasks_conditions_json_service.dart';
+import 'kompege_tasks_service.dart';
 
 /// Сервис для работы с пулом задач (как на kompege.ru)
-/// Хранит все доступные задачи по номерам и позволяет выбирать случайные
+/// Источники: КЕГЭ (kompege_tasks.json), desh/ege2026kp, tasks_conditions.json
 class TasksPoolService {
   final TasksConditionsJsonService _jsonService = TasksConditionsJsonService();
+  final KompegeTasksService _kompegeService = KompegeTasksService();
   final Random _rng = Random();
   Map<int, List<String>>? _assetTaskFilesCache;
   Map<String, dynamic>? _assetManifestCache;
@@ -89,6 +91,11 @@ class TasksPoolService {
     }
   }
 
+  /// Есть ли задачи из КЕГЭ (kompege_tasks.json).
+  Future<bool> hasKompegeTasks() async {
+    return _kompegeService.hasTasks();
+  }
+
   int? _extractVariantFromTaskFileName(String assetOrFilePath, int taskNumber) {
     final base = path.basenameWithoutExtension(assetOrFilePath);
     final m = RegExp(r'^task_(\d+)_(\d+)$').firstMatch(base);
@@ -100,10 +107,29 @@ class TasksPoolService {
   }
 
   /// Случайное условие + номер варианта условия (для правильного ответа из CSV).
-  /// Работает на Android/iOS через assets, на десктопе — через файловую систему.
+  /// [difficulty] — фильтр по сложности КЕГЭ (0–3); если null, сложность не фильтруется.
+  /// Сначала пробуем КЕГЭ (kompege_tasks.json), затем desh/assets.
   Future<Map<String, dynamic>?> getRandomTaskConditionWithVariant(
-    int taskNumber,
-  ) async {
+    int taskNumber, {
+    int? difficulty,
+  }) async {
+    // 0) КЕГЭ: задачи с разбивкой по сложности
+    final hasKompege = await _kompegeService.hasTasks();
+    if (hasKompege) {
+      final kompegeTask = await _kompegeService.getRandomTask(
+        taskNumber,
+        difficulty: difficulty,
+      );
+      if (kompegeTask != null) {
+        return {
+          'condition': kompegeTask.condition,
+          'variant': null,
+          'path': 'kompege',
+          'answer': kompegeTask.answer,
+        };
+      }
+    }
+
     // 1) На мобильных: пробуем выбрать случайный asset-файл из AssetManifest
     try {
       final assetFiles = await _getAssetTaskFilesForNumber(taskNumber);
