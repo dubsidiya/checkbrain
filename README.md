@@ -2,6 +2,34 @@
 
 kontrol
 
+## Файл задач КЕГЭ (assets/kompege_tasks.json)
+
+Сборник задач генерируется скриптом и весит ~70 MB. GitHub не рекомендует коммитить файлы >50 MB.
+
+**Варианты:**
+
+1. **Не коммитить большой файл**  
+   В репозитории держать плейсхолдер (пустой массив). После клонирования запустить:
+   ```bash
+   cd scripts/kompege && node extract_all_tasks.js
+   ```
+   Чтобы не запушить 70 MB случайно, перед коммитом откатить файл:
+   ```bash
+   git checkout -- assets/kompege_tasks.json
+   ```
+
+2. **Хранить в Git LFS**  
+   [Настройка Git LFS](https://git-lfs.github.com/) для `assets/kompege_tasks.json`, затем закоммитить файл через LFS.
+
+**Чтобы убрать большой файл из истории и держать в репо только плейсхолдер:**
+```bash
+echo '[]' > assets/kompege_tasks.json
+git add assets/kompege_tasks.json
+git commit -m "chore: replace kompege_tasks.json with placeholder"
+git push
+```
+После этого приложение соберётся с пустым списком задач; полный список создаётся скриптом `extract_all_tasks.js` локально.
+
 ## Деплой на Vercel (Flutter Web)
 
 В репозитории есть `vercel.json`: при подключении проекта к Vercel сборка выполняется на стороне Vercel.
