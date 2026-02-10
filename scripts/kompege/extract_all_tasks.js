@@ -91,7 +91,57 @@ function tryParseJson(body) {
   }
 }
 
-function main() {
+const IMG_SRC_URL_RE = /<img[^>]+src="(https?:\/\/[^"]+)"/gi;
+
+/** Собирает все уникальные URL картинок из условий. */
+function collectImageUrls(tasks) {
+  const urls = new Set();
+  for (const t of tasks) {
+    const html = t.condition || '';
+    let m;
+    IMG_SRC_URL_RE.lastIndex = 0;
+    while ((m = IMG_SRC_URL_RE.exec(html)) !== null) urls.add(m[1]);
+  }
+  return Array.from(urls);
+}
+
+/** Скачивает URL и возвращает data:image/...;base64,... или null при ошибке. */
+async function fetchImageAsDataUrl(url) {
+  try {
+    const res = await fetch(url, { redirect: 'follow' });
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    const b64 = Buffer.from(buf).toString('base64');
+    const contentType = (res.headers.get('content-type') || 'image/png').split(';')[0].trim();
+    return `data:${contentType};base64,${b64}`;
+  } catch (e) {
+    console.warn('  [img] %s: %s', url.slice(0, 55), e.message);
+    return null;
+  }
+}
+
+/** Заменяет в условиях задач все img src="https://..." на data:...;base64,... */
+async function inlineImageUrlsInTasks(tasks) {
+  const urls = collectImageUrls(tasks);
+  if (urls.length === 0) return tasks;
+  console.log('Загрузка изображений по URL (%s уникальных)...', urls.length);
+  const urlToData = new Map();
+  for (const url of urls) {
+    const dataUrl = await fetchImageAsDataUrl(url);
+    if (dataUrl) urlToData.set(url, dataUrl);
+  }
+  console.log('  загружено: %s из %s', urlToData.size, urls.length);
+  for (const task of tasks) {
+    let html = task.condition || '';
+    for (const [url, dataUrl] of urlToData) {
+      html = html.split(url).join(dataUrl);
+    }
+    task.condition = html;
+  }
+  return tasks;
+}
+
+async function main() {
   if (!existsSync(variantsDir)) {
     console.error('Сначала запустите fetch_all_variants.js');
     process.exit(1);
@@ -197,7 +247,7 @@ function main() {
       if (!u.variantKims.includes(t.kim)) u.variantKims.push(t.kim);
     }
   }
-  const allTasksUnique = Array.from(uniqueByKey.values()).map(u => ({
+  let allTasksUnique = Array.from(uniqueByKey.values()).map(u => ({
     taskNumber: u.taskNumber,
     condition: u.condition,
     answer: u.answer,
@@ -207,6 +257,10 @@ function main() {
     variantKims: u.variantKims,
     variantCount: u.variantKims.length,
   }));
+
+  // Подставляем изображения по URL в base64, чтобы в приложении они отображались (нет CORS)
+  allTasksUnique = await inlineImageUrlsInTasks(allTasksUnique);
+
   writeFileSync(
     join(outDir, 'all_tasks_unique.json'),
     JSON.stringify(allTasksUnique, null, 2),
@@ -236,4 +290,7 @@ function main() {
   console.log('Результат: %s', outDir);
 }
 
-main();
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

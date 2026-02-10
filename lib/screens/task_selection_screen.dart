@@ -3,6 +3,7 @@ import '../models/task.dart';
 import '../models/task_topic.dart';
 import '../services/tasks_pool_service.dart';
 import 'task_solving_screen.dart';
+import 'tasks_catalog_screen.dart';
 
 class TaskSelectionScreen extends StatefulWidget {
   const TaskSelectionScreen({super.key});
@@ -181,6 +182,20 @@ class _TaskSelectionScreenState extends State<TaskSelectionScreen> with SingleTi
         foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         scrolledUnderElevation: 1,
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (context) => const TasksCatalogScreen(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.menu_book_outlined),
+            tooltip: 'Сборник задач',
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
